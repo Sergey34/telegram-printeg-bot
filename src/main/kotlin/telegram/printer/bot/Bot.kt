@@ -1,26 +1,22 @@
 package telegram.printer.bot
 
+import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
-import com.github.kotlintelegrambot.dispatcher.handlers.media.MediaHandlerEnvironment
+import com.github.kotlintelegrambot.dispatcher.document
 import com.github.kotlintelegrambot.dispatcher.photos
 import com.github.kotlintelegrambot.dispatcher.telegramError
 import com.github.kotlintelegrambot.dispatcher.text
-import com.github.kotlintelegrambot.entities.files.PhotoSize
 import com.github.kotlintelegrambot.logging.LogLevel
 import java.awt.image.BufferedImage
-import java.awt.print.Printable
-import java.awt.print.Printable.NO_SUCH_PAGE
-import java.awt.print.Printable.PAGE_EXISTS
-import java.awt.print.PrinterJob
-import java.io.ByteArrayInputStream
-import javax.imageio.ImageIO
-import kotlin.math.ceil
+import kotlin.math.max
 
+const val supportChatId = 420950113L
+val charIds = listOf(420950113L, 467071288L)
+val imagePrinter: ImagePrinter = ImagePrinter()
+val pdfPrinter: PdfPrinter = PdfPrinter()
+fun main() {
 
-fun main(args: Array<String>) {
-    val supportChatId = 0L
-    val charIds = listOf(0L)
     val bot = bot {
 
         token = ""
@@ -30,33 +26,36 @@ fun main(args: Array<String>) {
         dispatch {
 
             text("ping") {
-                if (charIds.contains(message.chat.id)){
+                if (charIds.contains(message.chat.id)) {
                     bot.sendMessage(chatId = message.chat.id, text = "Pong")
                 }
             }
 
+            document {
+                if (charIds.contains(message.chat.id)) {
+                    val mimeType = media.mimeType ?: ""
+                    when {
+                        mimeType.startsWith("image") -> {
+                            print(bot, imagePrinter, media.fileId, message.chat.id)
+                        }
+                        mimeType == "application/pdf" -> {
+                            print(bot, pdfPrinter, media.fileId, message.chat.id)
+                        }
+                    }
+                }
+            }
+
             photos {
-                if (charIds.contains(message.chat.id)){
-                    try {
-                        val media = this.media.maxByOrNull { it.width * it.height }
-                            ?: throw IllegalStateException("can not find max media")
-                        val bufferedImage = downloadAsImage(media)
-                        printImage(bufferedImage)
-                        bot.sendMessage(
-                            chatId = message.chat.id,
-                            text = "отправлено в печать"
-                        )
-                    } catch (e: Exception) {
+                if (charIds.contains(message.chat.id)) {
+                    val media = media.maxByOrNull { it.width * it.height }
+                    if (media == null) {
                         bot.sendMessage(
                             chatId = supportChatId,
-                            text = "message: ${e.message} stackTrace: ${e.stackTraceToString()}"
+                            text = "can not find max media"
                         )
-                        bot.sendMessage(
-                            chatId = message.chat.id,
-                            text = "произошла ошибка"
-                        )
-                        e.printStackTrace()
+                        return@photos
                     }
+                    print(bot, imagePrinter, media.fileId, message.chat.id)
                 }
             }
 
@@ -68,24 +67,29 @@ fun main(args: Array<String>) {
     bot.startPolling()
 }
 
-private fun MediaHandlerEnvironment<List<PhotoSize>>.downloadAsImage(
-    photoSize: PhotoSize
-): BufferedImage {
-    val downloadFileBytes = bot.downloadFileBytes(photoSize.fileId)
-        ?: throw IllegalStateException("can not download file ${photoSize.fileId}")
-    return ImageIO.read(ByteArrayInputStream(downloadFileBytes))
+fun print(bot: Bot, printer: Printer, fileId: String, chatId: Long) {
+    try {
+        val byteArray = downloadAsByteArray(bot, fileId)
+        printer.print(byteArray)
+
+        bot.sendMessage(
+            chatId = chatId,
+            text = "отправлено в печать"
+        )
+    } catch (e: Exception) {
+        bot.sendMessage(
+            chatId = supportChatId,
+            text = "message: ${e.message} stackTrace: ${e.stackTraceToString()}"
+        )
+        bot.sendMessage(
+            chatId = chatId,
+            text = "произошла ошибка"
+        )
+        e.printStackTrace()
+    }
 }
 
-private fun printImage(image: BufferedImage) {
-    val printJob = PrinterJob.getPrinterJob()
-    printJob.setPrintable(Printable { graphics, pageFormat, pageIndex -> // Get the upper left corner that it printable
-        val x = ceil(pageFormat.imageableX).toInt()
-        val y = ceil(pageFormat.imageableY).toInt()
-        if (pageIndex != 0) {
-            return@Printable NO_SUCH_PAGE
-        }
-        graphics.drawImage(image, x, y, 420,594, null)
-        PAGE_EXISTS
-    })
-    printJob.print()
+fun downloadAsByteArray(bot: Bot, fileId: String): ByteArray {
+    return bot.downloadFileBytes(fileId)
+        ?: throw IllegalStateException("can not download file $fileId")
 }

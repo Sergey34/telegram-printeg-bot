@@ -15,6 +15,7 @@ repositories {
 
 dependencies {
     api("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.0.1")
+    api("org.apache.pdfbox:pdfbox:2.0.22")
 
     testImplementation(kotlin("test-junit"))
 }
