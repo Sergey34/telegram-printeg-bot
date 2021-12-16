@@ -8,8 +8,6 @@ import com.github.kotlintelegrambot.dispatcher.photos
 import com.github.kotlintelegrambot.dispatcher.telegramError
 import com.github.kotlintelegrambot.dispatcher.text
 import com.github.kotlintelegrambot.logging.LogLevel
-import java.awt.image.BufferedImage
-import kotlin.math.max
 
 const val supportChatId = 420950113L
 val charIds = listOf(420950113L, 467071288L)
