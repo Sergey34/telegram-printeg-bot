@@ -17,7 +17,7 @@ fun main() {
 
     val bot = bot {
 
-        token = ""
+        token = System.getProperty("PRINTER_BOT_TOKEN")
         timeout = 30
         logLevel = LogLevel.Network.Body
 
