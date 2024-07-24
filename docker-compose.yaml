@@ -1,0 +1,7 @@
+version: '2'
+
+services:
+  seko-printer-bot:
+    image: seko/tg-printer-bot:1.0.1
+    environment:
+      PRINTER_BOT_TOKEN: ${PRINTER_BOT_TOKEN}
